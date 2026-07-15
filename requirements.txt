@@ -1,0 +1,4 @@
+# 마이리얼트립 투어 조회 스킬(myrealtrip-search) 실행에만 필요합니다.
+# 리서치·계획서 제작(travel-research / travel-plan-builder)에는 불필요.
+# 설치:  python -m pip install -r requirements.txt
+mcp
