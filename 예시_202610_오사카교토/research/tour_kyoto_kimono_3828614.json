@@ -1,0 +1,11 @@
+{
+  "meta": null,
+  "content": [
+    {
+      "type": "text",
+      "text": "{\n  \"success\": true,\n  \"searchParams\": {\n    \"gid\": \"3828614\",\n    \"selectedDate\": \"2026-10-24\"\n  },\n  \"selectedDate\": \"2026-10-24\",\n  \"isRequestedDateAvailable\": true,\n  \"hasAvailableOptions\": true,\n  \"availabilityMessage\": \"2026-10-24 예약 가능합니다!\",\n  \"units\": [\n    {\n      \"id\": \"17030\",\n      \"name\": \"수량\",\n      \"uiType\": \"COUNT\",\n      \"unitItems\": [\n        {\n          \"id\": \"62100\",\n          \"name\": \"인원 수\",\n          \"description\": \"\"\n        }\n      ]\n    }\n  ],\n  \"options\": [\n    {\n      \"id\": \"96978\",\n      \"name\": \"사진작가가 안내하는 교토 아라시야마 기모노 여행키츠네 스냅 투어\",\n      \"unitItemIds\": [\n        \"62100\"\n      ],\n      \"minPurchaseQuantity\": 1,\n      \"availablePurchaseQuantity\": 6,\n      \"salePrice\": 85000,\n      \"currency\": \"KRW\",\n      \"subOptions\": []\n    }\n  ],\n  \"defaultOption\": {\n    \"id\": \"96978\",\n    \"name\": \"사진작가가 안내하는 교토 아라시야마 기모노 여행키츠네 스냅 투어\",\n    \"unitItemIds\": [\n      \"62100\"\n    ],\n    \"minPurchaseQuantity\": 1,\n    \"availablePurchaseQuantity\": 6,\n    \"salePrice\": 85000,\n    \"currency\": \"KRW\"\n  }\n}",
+      "annotations": null
+    }
+  ],
+  "isError": false
+}

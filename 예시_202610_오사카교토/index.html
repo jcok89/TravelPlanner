@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>(예시) 오사카·교토 3박4일 ✈️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Noto Sans KR',sans-serif;background:#f3f4f6;}
+  .chip.active{background:#111827;color:#fff;}
+  .tab{display:none;} .tab.active{display:block;}
+  .map{height:340px;border-radius:1rem;z-index:0;}
+  .num-pin{background:#111827;color:#fff;border-radius:9999px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);}
+  .sel.selected{outline:3px solid #10b981;background:#ecfdf5;}
+  @media print{.no-print{display:none!important;} .tab{display:block!important;} .map{display:none;}}
+</style>
+</head>
+<body class="text-gray-800">
+<header class="text-white shadow-xl" style="background:linear-gradient(135deg,#2b5876,#4e4376)">
+  <div class="max-w-4xl mx-auto px-4 py-10">
+    <div class="inline-block mb-2 text-xs bg-amber-400 text-amber-900 font-bold px-2 py-1 rounded">배포 키트 검증용 · 가상 테스트 케이스</div>
+    <h1 class="text-3xl md:text-4xl font-bold">🇯🇵 오사카 · 교토 3박4일</h1>
+    <p class="mt-2 opacity-90">2026.10.22(목) ~ 10.25(일) · 커플 · 야경·미식 중심</p>
+    <p class="mt-1 text-sm opacity-70">검증 기준일 2026-07-15 · 항공/숙소는 가상값</p>
+  </div>
+</header>
+
+<nav class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b no-print">
+  <div class="max-w-4xl mx-auto px-3 py-2 flex gap-2 overflow-x-auto" id="nav"></div>
+</nav>
+
+<main class="max-w-4xl mx-auto px-4 py-6">
+
+  <!-- 개요 탭 -->
+  <section id="tab-overview" class="tab active">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xl font-bold">🗺️ 전체 개요</h2>
+      <button onclick="downloadKML()" class="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg no-print">📍 구글맵 KML 내려받기</button>
+    </div>
+    <div id="overviewMap" class="map mb-6"></div>
+
+    <h3 class="font-bold mb-2">✈️ 확정 정보 <span class="text-xs text-gray-400">(가상)</span></h3>
+    <div class="grid md:grid-cols-2 gap-3 mb-6" id="confirmed"></div>
+
+    <h3 class="font-bold mb-2">✅ 예약 우선순위 <span class="text-xs text-gray-400">(오늘 2026-07-15 기준 · 클릭 체크)</span></h3>
+    <div class="space-y-2 mb-6" id="resv"></div>
+
+    <h3 class="font-bold mb-2">🚇 교통 전략</h3>
+    <div class="bg-white rounded-xl p-4 mb-6 text-sm leading-relaxed shadow-sm" id="transport"></div>
+
+    <h3 class="font-bold mb-2">🍁 계절 팁 (2026-10 하순)</h3>
+    <div class="bg-white rounded-xl p-4 text-sm leading-relaxed shadow-sm" id="season"></div>
+  </section>
+
+  <!-- 비교 탭 -->
+  <section id="tab-compare" class="tab">
+    <h2 class="text-xl font-bold mb-3">🧳 패키지 vs 우리 일정</h2>
+    <div class="bg-white rounded-xl p-4 shadow-sm overflow-x-auto" id="compare"></div>
+  </section>
+
+  <!-- 날짜 탭들 (JS 렌더) -->
+  <div id="days"></div>
+</main>
+
+<footer class="text-center py-8 text-gray-400 text-sm border-t no-print">
+  <p>(예시) 오사카·교토 계획서 · 배포 키트 travel-plan-builder 스킬 산출물 · 가상 데이터</p>
+</footer>
+
+<script>
+// ===== 확정 정보 (가상) =====
+const CONFIRMED = [
+  {icon:'✈️', t:'출국', v:'EX123 · ICN 07:30 → KIX 09:40 (가상 편명)'},
+  {icon:'✈️', t:'귀국', v:'EX124 · KIX 20:30 → ICN 22:40 (가상 편명)'},
+  {icon:'🏨', t:'오사카 숙소', v:'난바(미나미) 지역 2박 · 10/22~24 (가상)'},
+  {icon:'🏨', t:'교토 숙소', v:'교토역 인근 1박 · 10/24~25 (가상)'},
+];
+
+// ===== 예약 우선순위 =====
+const RESV = [
+  {u:'now', label:'항공·숙소·10/24(토) 인기 식당 확보', why:'토요일 교토 최성수 — 숙박/식당 조기 마감', url:''},
+  {u:'soon', label:'마이리얼트립 교토 기모노 체험 예약 (10/24)', why:'gid 3828614 · 10/24 예약가능 확인됨', url:'https://experiences.myrealtrip.com/products/3828614'},
+  {u:'soon', label:'니조성 혼마루고텐 시간지정 예약 (관람 시)', why:'사전예약제 · 통상 약 1개월 전 오픈', url:'https://nijo-jocastle.city.kyoto.lg.jp/guide/annai/'},
+  {u:'soon', label:'⚠️ 간사이 스루패스 하반기 유효판 확인', why:'2일권 유효기간 10/1까지 안내 → 우리 일정 사용 불가 가능성', url:'https://www.hankyu.co.jp/en/ticket/otoku/global_kansai-railway.html'},
+  {u:'any', label:'오사카 주유패스(디지털) 1일권 구매', why:'오사카성+우메다 같은 날(10/22) → 3,500엔 본전 이상', url:'https://osaka-amazing-pass.com/'},
+  {u:'any', label:'우메다 스카이빌딩 WEB티켓 · 난카이 라피트 디지털', why:'대기 단축용, 매진 리스크 낮음', url:'https://www.skybldg.co.jp/observatory/information/'},
+];
+const U = {now:{t:'지금 즉시',c:'bg-red-100 text-red-700'}, soon:{t:'3~4주 내',c:'bg-amber-100 text-amber-700'}, any:{t:'출발 전/당일',c:'bg-emerald-100 text-emerald-700'}};
+
+const TRANSPORT = `
+<b>패스</b> · <b>오사카 주유패스 1일권 3,500엔(≈32,550원)</b> — Metro·시내사철 무제한 + 약 40개 시설 무료(오사카성·우메다스카이 포함, JR 제외). 오사카성(1,200)+우메다(2,000)을 <b>10/22 같은 날</b> 몰면 본전 이상.<br>
+⚠️ 간사이 스루패스/Railway Pass Lite 2일권은 유효기간(~10/1 안내)·커버축소로 <b>이번 일정 비추천</b>(하반기판 확인 필요). 오사카↔교토는 편도 1회씩이라 개별 승차권이 저렴.<br><br>
+<b>공항·도시간</b> · KIX→난바 <b>난카이 라피트 약 40분, 디지털 1,300엔</b>(급행 970엔·44분). 오사카↔교토 <b>한큐 특급 43분 410엔</b>(최저가) / JR 신쾌속 29분 580엔(최속) / 케이한 특급 430엔(동산권=후시미·청수사 유리). 교토→KIX <b>JR 하루카 약 80분</b>.`;
+
+const SEASON = `
+🌇 <b>일몰</b> 10/22 17:16 → 10/25 17:13. 우메다 공중정원은 <b>16:30~17:00 입장</b>이 노을→야경 골든타임.<br>
+🌡️ <b>기온</b> 오사카 15~23℃ / 교토 13~22℃. 교토 분지 일교차 7~8℃ → 카디건·바람막이. 산지 사찰 더 쌀쌀.<br>
+🍁 <b>단풍</b> 10월 하순은 초입(절정 11월 중하순). <b>⚠️ 청수사 등 가을 야간 라이트업은 11월 중순 이후 시작 → 우리 일정엔 없음.</b> 야경은 우메다·도톤보리로.<br>
+💴 <b>현금</b> 기요미즈데라·노포 식당은 엔화 현금 필수. 🕗 후시미·아라시야마·청수사는 오전 8시 이전만 한산.<br>
+📸 기온·하나미코지 마이코 <b>무단촬영 금지</b>(과태료 사례).`;
+
+const COMPARE = `
+<table class="w-full text-sm border-collapse">
+<thead><tr class="border-b text-left text-gray-500">
+<th class="py-2 pr-3">코스</th><th class="pr-3">패키지</th><th class="pr-3">후기</th><th>우리 일정 반영</th></tr></thead>
+<tbody>
+<tr class="border-b"><td class="py-2 pr-3 font-medium">청수사+산넨자카</td><td>공통</td><td>상</td><td>✅ D3 토 오전</td></tr>
+<tr class="border-b"><td class="py-2 pr-3 font-medium">도톤보리·우메다 야경</td><td>상품별</td><td>상</td><td>✅ D1 (일몰 16:30 입장)</td></tr>
+<tr class="border-b"><td class="py-2 pr-3 font-medium">오사카성</td><td>공통</td><td>중</td><td>✅ D1 (주유패스 코어)</td></tr>
+<tr class="border-b"><td class="py-2 pr-3 font-medium">나라 사슴공원</td><td>공통</td><td>상</td><td>✅ D2 근교</td></tr>
+<tr class="border-b"><td class="py-2 pr-3 font-medium">아라시야마·텐류지</td><td>한정</td><td>상</td><td>✅ D4 <b>일</b>(운룡도 토·일만)</td></tr>
+<tr class="border-b"><td class="py-2 pr-3 font-medium">킨카쿠지</td><td>공통</td><td>중</td><td>➖ 격하(동선 부담)</td></tr>
+<tr class="border-b"><td class="py-2 pr-3 font-medium">유니버설(USJ)</td><td>최다 선택관광</td><td>상</td><td>➖ 이번 테마 제외</td></tr>
+<tr><td class="py-2 pr-3 font-medium">아메리카무라·쓰텐카쿠 전망대</td><td>—</td><td>하</td><td>❌ 제외</td></tr>
+</tbody></table>
+<p class="mt-3 text-xs text-gray-500">패키지 공통 = 업계 검증 필수 / 후기 상 = 만족도 검증 / 요일·운영은 트랙 C 공식 확인 반영.</p>`;
+
+// ===== 일정 데이터 (단일 소스) =====
+const DAYS = [
+{ id:'d1', date:'10/22', dow:'목', city:'오사카', flag:'🇯🇵', color:'amber', title:'도착 → 오사카성 → 우메다 야경', sunset:'17:16',
+  note:'오사카 주유패스 1일권으로 오사카성+우메다 몰기(본전 이상). 우메다는 일몰 30분 전 입장.',
+  stops:[
+   {t:'09:40', icon:'✈️', title:'간사이공항(KIX) 도착', coord:[34.4320,135.2304], g:'Kansai International Airport', desc:'입국심사 후 난카이선 승강장으로. 디지털 라피트권 사전구매 시 대기 단축.'},
+   {t:'10:40', icon:'🚄', title:'난카이 라피트 → 난바', coord:[34.6620,135.5012], g:'Nankai Namba Station', move:{mode:'transit',label:'난카이 라피트 약 40분 (디지털 1,300엔)'}, desc:'미나미(난바) 숙소 지역 도착. 급행이면 970엔·44분.'},
+   {t:'11:40', icon:'🍜', title:'구로몬시장 점심(가볍게)', coord:[34.6657,135.5065], g:'Kuromon Ichiba Market', move:{mode:'walking',label:'도보 8분'}, desc:'관광지화로 다소 비쌈 → 아침·점심 가볍게. 미식 메인은 저녁 도톤보리.'},
+   {t:'13:30', icon:'🏯', title:'오사카성 천수각', coord:[34.6873,135.5259], g:'Osaka Castle', badge:'주유패스', move:{mode:'transit',label:'지하철 약 20분 (주유패스)'}, desc:'9:00~17:00 연중무휴, 대인 1,200엔(주유패스 무료). 해자·공원 은행나무 산책.', links:[{k:'book',label:'🎟️ 공식',url:'https://www.osakacastle.net/guide/'}]},
+   {t:'16:30', icon:'🌆', title:'우메다 스카이빌딩 공중정원', coord:[34.7052,135.4897], g:'Umeda Sky Building', hl:true, badge:'야경 골든타임', move:{mode:'transit',label:'지하철 약 25분'}, desc:'일몰 17:16 → 16:30 입장이 노을~매직아워~야경 3단 콤보. 9:30~22:30, 2,000엔.', links:[{k:'book',label:'🎟️ WEB티켓',url:'https://www.skybldg.co.jp/observatory/information/'}]},
+   {t:'19:00', icon:'🌃', title:'도톤보리 야경 + 쿠시카츠 다루마', coord:[34.6686,135.5010], g:'Dotonbori', hl:true, move:{mode:'transit',label:'지하철 약 15분'}, desc:'글리코 네온 + 리버워크 야경. 쿠시카츠 다루마(소스 두 번 금지)는 오픈런 or 20시 이후. 엔화 현금 준비.'}
+  ],
+  alts:[{tag:'교통 팁', title:'주유패스 1일권', desc:'오사카성+우메다 같은 날 방문 시 3,500엔 본전 이상. 디지털권 사전구매.'}]
+},
+{ id:'d2', date:'10/23', dow:'금', city:'나라 근교', flag:'🦌', color:'emerald', title:'나라 당일 → 오사카 야경', sunset:'17:15',
+  note:'근교 반나절(나라). 오후 복귀 후 우메다 관람차 or 신세카이 쿠시카츠.',
+  stops:[
+   {t:'09:00', icon:'🚄', title:'긴테쓰로 나라 이동', coord:[34.6845,135.8288], g:'Kintetsu Nara Station', move:{mode:'transit',label:'긴테쓰 급행 약 40분'}, desc:'오사카 난바→긴테쓰나라 직통. 나라공원 도보권.'},
+   {t:'10:00', icon:'🛕', title:'도다이지(동대사) 대불', coord:[34.6890,135.8398], g:'Todaiji Temple', hl:true, move:{mode:'walking',label:'도보 12분'}, desc:'세계 최대 목조건축·대불. 반나절 편한 도보 코스로 만족도 높음.'},
+   {t:'11:30', icon:'🦌', title:'나라공원 사슴 + 나라마치', coord:[34.6851,135.8430], g:'Nara Park', move:{mode:'walking',label:'도보 5분'}, desc:'사슴센베로 교감. 나라마치 옛 거리 산책.'},
+   {t:'14:00', icon:'🍱', title:'점심 후 오사카 복귀', coord:[34.7025,135.4959], g:'Osaka Umeda Station', move:{mode:'transit',label:'긴테쓰+지하철 약 50분'}, desc:'키타(우메다)로 복귀.'},
+   {t:'16:00', icon:'🎡', title:'헵파이브 대관람차', coord:[34.7043,135.4989], g:'HEP FIVE Ferris Wheel', move:{mode:'walking',label:'도보 6분'}, desc:'106m·15분, 우메다역 직결. 야경 시간대 로맨틱(주유패스 무료).'},
+   {t:'18:30', icon:'🍢', title:'신세카이 쿠시카츠 저녁', coord:[34.6524,135.5063], g:'Shinsekai Osaka', hl:true, move:{mode:'transit',label:'지하철 약 20분'}, desc:'레트로 네온 + 쿠시카츠. 쓰텐카쿠 전망대는 스킵, 골목 분위기·먹거리로.'}
+  ],
+  alts:[{tag:'대안 투어', title:'고베 야경 프라이빗(마이리얼트립)', desc:'gid 3886010, 10/22 예약가능하나 고베 이동 동선 과함 → 오사카 자체 야경으로 대체, 필요 시만.'}]
+},
+{ id:'d3', date:'10/24', dow:'토', city:'교토', flag:'⛩️', color:'rose', title:'후시미이나리 → 청수사 → 기온', sunset:'17:14',
+  note:'토요일 교토 최성수 → 오전 이른 시간 확보. 동산권 이동은 케이한.',
+  stops:[
+   {t:'08:00', icon:'🚄', title:'오사카 → 교토 이동', coord:[34.9858,135.7588], g:'Kyoto Station', move:{mode:'transit',label:'한큐 특급 43분(410엔) / 케이한'}, desc:'짐은 교토 숙소/코인락커에. 후시미 방면은 케이한이 편리.'},
+   {t:'08:40', icon:'⛩️', title:'후시미이나리 신사(천본도리)', coord:[34.9671,135.7727], g:'Fushimi Inari Taisha', hl:true, move:{mode:'transit',label:'케이한 약 15분'}, desc:'24시간 무료. 붉은 도리이는 오전 9시 이전이 유일한 한산 타임. 요츠츠지까지만도 충분.'},
+   {t:'11:00', icon:'👘', title:'기모노 체험 (마이리얼트립)', coord:[34.9962,135.7820], g:'Kiyomizu-dera area kimono', badge:'예약확정', move:{mode:'transit',label:'케이한+도보 약 30분'}, desc:'기요미즈 근처 기모노+헤어(⭐4.8/180). 10/24 예약가능 확인. 청수사 코스와 세트.', links:[{k:'book',label:'👘 예약',url:'https://experiences.myrealtrip.com/products/3828614'}]},
+   {t:'12:30', icon:'🏯', title:'기요미즈데라 + 산넨자카·니넨자카', coord:[34.9948,135.7850], g:'Kiyomizu-dera', hl:true, badge:'현금만', move:{mode:'walking',label:'도보 8분'}, desc:'6:00~18:00, 배관 500엔 현금만. 산넨자카→니넨자카 오르막이 정취. 관람 1~1.5h. (가을 야간배관은 11월 하순부터 → 이번엔 없음)', links:[{k:'book',label:'ℹ️ 공식',url:'https://www.kiyomizudera.or.jp/event/yakan.php'}]},
+   {t:'15:30', icon:'🍵', title:'니시키시장 or 카페(가볍게)', coord:[35.0050,135.7648], g:'Nishiki Market', move:{mode:'transit',label:'버스/도보'}, desc:'과밀·물가↑ → 가볍게 통과. 커플 카페 휴식 권장.'},
+   {t:'18:00', icon:'🏮', title:'기온·하나미코지 저녁', coord:[35.0037,135.7757], g:'Hanamikoji Gion', hl:true, move:{mode:'walking',label:'도보'}, desc:'홍등 목조 골목, 마이코 조우 가능. 폰토초·기야마치 이자카야 저녁. 마이코 무단촬영 금지.'},
+   {t:'20:30', icon:'🏨', title:'교토역 숙소 체크인', coord:[34.9858,135.7588], g:'Kyoto Station', move:{mode:'transit',label:'전철 약 15분'}, desc:'교토역 인근 숙소.'}
+  ],
+  alts:[{tag:'식당 예약', title:'토요일 인기 식당은 사전 예약', desc:'하시타테(우동)·야키니쿠 좌석예약형은 타베로그 예약 시 웨이팅 제로.'}]
+},
+{ id:'d4', date:'10/25', dow:'일', city:'교토→귀국', flag:'🎋', color:'violet', title:'아라시야마 → 텐류지 운룡도 → 귀국', sunset:'17:13',
+  note:'텐류지 법당 운룡도는 토·일·공휴일만 공개 → 일요일 방문 최적. 오후 공항 이동.',
+  stops:[
+   {t:'08:00', icon:'🎋', title:'아라시야마 대나무숲(치쿠린)', coord:[35.0170,135.6716], g:'Arashiyama Bamboo Grove', hl:true, desc:'이른 아침 고즈넉. 9시 넘으면 인파. 산책로 자체는 몇 분.'},
+   {t:'08:40', icon:'🐉', title:'텐류지 + 운룡도', coord:[35.0159,135.6738], g:'Tenryu-ji Temple', badge:'일요일 한정', move:{mode:'walking',label:'도보 5분'}, desc:'정원 8:30~ (500엔). 법당 운룡도는 토·일·공휴일만 공개(별도 500엔) → 오늘 관람 가능.', links:[{k:'book',label:'ℹ️ 공식',url:'https://www.tenryuji.com/visit/'}]},
+   {t:'09:40', icon:'🌉', title:'토게츠교 산책', coord:[35.0130,135.6779], g:'Togetsukyo Bridge', move:{mode:'walking',label:'도보 8분'}, desc:'카츠라강 다리. 아라시야마 정취 마무리.'},
+   {t:'11:00', icon:'🚄', title:'교토역 복귀 → 짐', coord:[34.9858,135.7588], g:'Kyoto Station', move:{mode:'transit',label:'란덴/JR 약 30분'}, desc:'숙소 짐 회수.'},
+   {t:'13:00', icon:'🚄', title:'JR 하루카 → 간사이공항', coord:[34.4320,135.2304], g:'Kansai International Airport', move:{mode:'transit',label:'JR 하루카 약 80분'}, desc:'교토역 직행. 자유석 3,110엔.'},
+   {t:'20:30', icon:'🛫', title:'EX124 출국', coord:[34.4320,135.2304], g:'Kansai International Airport', badge:'확정', desc:'KIX 20:30 → ICN 22:40 (가상 편명). 2~3시간 전 도착 권장.'}
+  ],
+  alts:[]
+}
+];
+
+// ===== 렌더링 =====
+const COLOR = {amber:'bg-amber-500', emerald:'bg-emerald-500', rose:'bg-rose-500', violet:'bg-violet-500'};
+const maps = {}; // id -> leaflet map (lazy)
+
+function buildNav(){
+  const nav = document.getElementById('nav');
+  const items = [{id:'overview',label:'개요·예약'},{id:'compare',label:'패키지 비교'}]
+    .concat(DAYS.map((d,i)=>({id:d.id,label:`D${i+1} ${d.date}(${d.dow}) ${d.city}`})));
+  nav.innerHTML = items.map(it=>`<button class="chip whitespace-nowrap text-sm px-3 py-1.5 rounded-full bg-gray-100" data-tab="${it.id}" onclick="showTab('${it.id}')">${it.label}</button>`).join('');
+}
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c.dataset.tab===id));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(id==='overview'){ initMap('overviewMap', overviewLayers()); }   // 탭 최초 표시 때 lazy 초기화
+  const day = DAYS.find(d=>d.id===id);
+  if(day){ initDayMap(day); }
+}
+
+function overviewLayers(){
+  const cityPins=[{n:'오사카',c:[34.6937,135.5023]},{n:'나라',c:[34.6851,135.8430]},{n:'교토',c:[35.0116,135.7681]}];
+  return (map)=>{
+    const bounds=[];
+    cityPins.forEach(p=>{ L.marker(p.c).addTo(map).bindPopup(p.n); bounds.push(p.c); });
+    L.polyline(cityPins.map(p=>p.c),{color:'#4e4376',dashArray:'6'}).addTo(map);
+    map.fitBounds(bounds,{padding:[40,40]});
+  };
+}
+
+function initMap(divId, layerFn){
+  if(maps[divId]){ maps[divId].invalidateSize(); return; }
+  const m = L.map(divId,{scrollWheelZoom:false});
+  L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{subdomains:['mt0','mt1','mt2','mt3'],maxZoom:20}).addTo(m);
+  layerFn(m);
+  maps[divId]=m;
+  setTimeout(()=>m.invalidateSize(),100);
+}
+
+function initDayMap(day){
+  const divId = 'map-'+day.id;
+  initMap(divId,(m)=>{
+    const pts=[];
+    day.stops.forEach((s,i)=>{
+      const icon=L.divIcon({className:'',html:`<div class="num-pin">${i+1}</div>`,iconSize:[26,26]});
+      L.marker(s.coord,{icon}).addTo(m).bindPopup(`${i+1}. ${s.title}`);
+      if(pts.length===0 || pts[pts.length-1][0]!==s.coord[0] || pts[pts.length-1][1]!==s.coord[1]) pts.push(s.coord);
+    });
+    if(pts.length>1) L.polyline(pts,{color:'#111827'}).addTo(m);
+    m.fitBounds(pts,{padding:[40,40]});
+  });
+}
+
+function dirUrl(a,b,mode){ return `https://www.google.com/maps/dir/?api=1&origin=${a[0]},${a[1]}&destination=${b[0]},${b[1]}&travelmode=${mode||'transit'}`; }
+function searchUrl(q){ return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`; }
+
+function renderDays(){
+  const wrap = document.getElementById('days');
+  wrap.innerHTML = DAYS.map((d,di)=>{
+    const stops = d.stops.map((s,i)=>{
+      const prev = i>0?d.stops[i-1]:null;
+      const dir = prev?`<div class="ml-3 my-1 text-xs text-gray-500 flex items-center gap-2">
+        <span>↳ ${s.move?s.move.label:'이동'}</span>
+        <a class="no-print underline" target="_blank" href="${dirUrl(prev.coord,s.coord,s.move?s.move.mode:'transit')}">길찾기</a></div>`:'';
+      const links = (s.links||[]).map(l=>`<a target="_blank" href="${l.url}" class="inline-block text-xs mr-2 mt-1 px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200">${l.label}</a>`).join('');
+      const badge = s.badge?`<span class="text-xs ml-2 px-2 py-0.5 rounded-full bg-black text-white">${s.badge}</span>`:'';
+      return `${dir}
+      <div class="flex gap-3 ${s.hl?'bg-amber-50':''} rounded-lg p-2">
+        <div class="flex flex-col items-center">
+          <div class="num-pin">${i+1}</div>
+          <div class="text-xs text-gray-400 mt-1">${s.t}</div>
+        </div>
+        <div class="flex-1">
+          <div class="font-semibold">${s.icon} ${s.title}${badge}
+            <a target="_blank" href="${searchUrl(s.g)}" class="no-print text-xs text-blue-500 ml-1">지도↗</a></div>
+          <div class="text-sm text-gray-600 mt-0.5">${s.desc||''}</div>
+          <div>${links}</div>
+        </div>
+      </div>`;
+    }).join('');
+    const alts = (d.alts||[]).map(a=>`<div class="sel cursor-pointer border rounded-lg p-3 text-sm" onclick="toggleSel(this,'${d.id}-${a.tag}')">
+      <div class="font-semibold">${a.tag} · ${a.title}</div><div class="text-gray-600">${a.desc}</div></div>`).join('');
+    return `<section id="tab-${d.id}" class="tab">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-3 h-3 rounded-full ${COLOR[d.color]}"></span>
+        <h2 class="text-xl font-bold">D${di+1} · ${d.date}(${d.dow}) ${d.flag} ${d.city}</h2>
+      </div>
+      <p class="text-sm text-gray-500 mb-1">${d.title} · 🌇 일몰 ${d.sunset}</p>
+      ${d.note?`<p class="text-xs bg-yellow-50 border border-yellow-200 rounded p-2 mb-3">📌 ${d.note}</p>`:''}
+      <div id="map-${d.id}" class="map mb-4"></div>
+      <div class="space-y-1 mb-4">${stops}</div>
+      ${alts?`<h3 class="font-bold text-sm mb-2">🔀 선택지/대안 <span class="text-xs text-gray-400">(클릭 저장)</span></h3><div class="grid md:grid-cols-2 gap-2">${alts}</div>`:''}
+    </section>`;
+  }).join('');
+}
+
+function renderOverview(){
+  document.getElementById('confirmed').innerHTML = CONFIRMED.map(c=>`
+    <div class="bg-white rounded-xl p-3 shadow-sm flex gap-3 items-start">
+      <div class="text-2xl">${c.icon}</div>
+      <div><div class="text-xs text-gray-400">${c.t} <span class="ml-1 px-1.5 py-0.5 bg-gray-800 text-white rounded">확정</span></div>
+      <div class="text-sm font-medium">${c.v}</div></div></div>`).join('');
+  document.getElementById('resv').innerHTML = RESV.map((r,i)=>`
+    <label class="flex items-start gap-2 bg-white rounded-xl p-3 shadow-sm cursor-pointer">
+      <input type="checkbox" class="mt-1" data-k="resv-${i}" onchange="saveCheck(this)">
+      <div class="flex-1">
+        <div class="text-sm font-medium">${r.label} <span class="text-xs ml-1 px-2 py-0.5 rounded-full ${U[r.u].c}">${U[r.u].t}</span></div>
+        <div class="text-xs text-gray-500">${r.why}</div>
+        ${r.url?`<a target="_blank" href="${r.url}" class="no-print text-xs text-blue-500">예약/정보 ↗</a>`:''}
+      </div></label>`).join('');
+  document.getElementById('transport').innerHTML = TRANSPORT;
+  document.getElementById('season').innerHTML = SEASON;
+  document.getElementById('compare').innerHTML = COMPARE;
+}
+
+// ===== 상태 저장 (localStorage) =====
+function toggleSel(el,key){ el.classList.toggle('selected'); localStorage.setItem('sel-'+key, el.classList.contains('selected')?'1':''); }
+function saveCheck(el){ localStorage.setItem(el.dataset.k, el.checked?'1':''); }
+function restore(){
+  document.querySelectorAll('[data-k]').forEach(el=>{ if(localStorage.getItem(el.dataset.k)==='1') el.checked=true; });
+  document.querySelectorAll('.sel').forEach(el=>{ const oc=el.getAttribute('onclick')||''; const m=oc.match(/'([^']+)'\)/); if(m && localStorage.getItem('sel-'+m[1])==='1') el.classList.add('selected'); });
+}
+
+// ===== KML 내보내기 =====
+function downloadKML(){
+  let ph='';
+  DAYS.forEach((d,di)=>{ d.stops.forEach((s,i)=>{
+    ph+=`<Placemark><name>D${di+1}-${i+1} ${s.title}</name><description>${d.date}(${d.dow}) ${s.t} ${(s.desc||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</description><Point><coordinates>${s.coord[1]},${s.coord[0]},0</coordinates></Point></Placemark>`;
+  });});
+  const kml=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>오사카교토 3박4일(예시)</name>${ph}</Document></kml>`;
+  const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='travel_pins.kml'; a.click();
+}
+
+// ===== init =====
+buildNav(); renderOverview(); renderDays(); restore();
+showTab('overview');
+</script>
+</body>
+</html>
