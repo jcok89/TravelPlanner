@@ -4,7 +4,7 @@
 
 # Git Tracking Rule
 웹페이지 소스코드(`index.html` 등)를 대규모로 수정하거나 기능이 완성될 때마다,
-반드시 `git add .` 및 `git commit -m "의미 있는 커밋 메시지"` 후 `git push origin master`로 백업/트래킹한다.
+반드시 `git add .` 및 `git commit -m "의미 있는 커밋 메시지"` 후 `git push origin main`로 백업/트래킹한다.
 
 # Skills (모든 AI 도구 공통 — Claude Code / Codex / Gemini 등)
 여행 계획 작업은 아래 스킬 문서를 먼저 읽고 절차를 따른다.
